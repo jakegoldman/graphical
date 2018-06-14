@@ -65,7 +65,7 @@ def draw_polygons( matrix, screen, zbuffer, view, ambient, lights, constants):
         point+= 3
 
 def add_mesh( polygons, filename ):
-    with open( filename ) as f:
+    with open( 'obj/' + filename ) as f:
 
         lines = f.read().split("\n")
 
