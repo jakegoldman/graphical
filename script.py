@@ -22,7 +22,7 @@ def first_pass( commands ):
     isFrame = False
     isBasename = False
     isVary = False
-
+    basename = 'Fry'
     num_frames = 1
 
     for c in commands:
@@ -41,12 +41,10 @@ def first_pass( commands ):
         exit(1)
     # if there isn't a basename, use the default
     if isFrame and not isBasename:
-        basename = 'Fry'
         print 'No basename set, defaulting to \'Fry\''
     return [num_frames, basename]
 
-
-"""======== second_pass( commands ) ==========
+"""======== second_pass( commands, num_frames ) ==========
 
   In order to set the knobs for animation, we need to keep
   a seaprate value for each knob for each frame. We can do
@@ -86,13 +84,22 @@ def second_pass( commands, num_frames ):
                 i += 1
     return knobs
 
+def l_pass( symbols ):
 
+    lights = {}
+    ambient = [255, 255, 255]
+
+    for s in symbols:
+        if symbols[s][0] == 'light':
+            lights[s] = symbols[s][1]
+        elif s == 'ambient':
+            ambient = symbols[s][1:]
+    return [lights, ambient]
 
 def run(filename):
     """
     This function runs an mdl script
     """
-
     p = mdl.parseFile(filename)
 
     if p:
@@ -101,16 +108,16 @@ def run(filename):
         print "Parsing failed."
         return
 
-
     first_res = first_pass(commands)
     num_frames = first_res[0]
     basename = first_res[1]
-    knobs = second_pass( commands, num_frames )
+    knobs = second_pass(commands, num_frames)
 
+    light_res = l_pass(symbols)
+    lights = light_res[0]
+    ambient = light_res[1]
 
     for frame in range(num_frames):
-
-        # set values each time
         view = [0,
                 0,
                 1];
@@ -141,11 +148,10 @@ def run(filename):
         screen = new_screen()
         zbuffer = new_zbuffer()
         tmp = []
-        step_3d = 20
+        step_3d = 50
         consts = ''
         coords = []
         coords1 = []
-
 
         # deal with knobs
         for knob in knobs[frame]:
@@ -167,19 +173,19 @@ def run(filename):
                         args[0], args[1], args[2],
                         args[3], args[4], args[5])
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zbuffer, view, ambient, light, areflect, dreflect, sreflect)
+                draw_polygons(tmp, screen, zbuffer, view, ambient, lights, symbols[command['constants']][1])
                 tmp = []
             elif c == 'sphere':
                 add_sphere(tmp,
                            args[0], args[1], args[2], args[3], step_3d)
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zbuffer, view, ambient, light, areflect, dreflect, sreflect)
+                draw_polygons(tmp, screen, zbuffer, view, ambient, lights, symbols[command['constants']][1])
                 tmp = []
             elif c == 'torus':
                 add_torus(tmp,
                           args[0], args[1], args[2], args[3], args[4], step_3d)
                 matrix_mult( stack[-1], tmp )
-                draw_polygons(tmp, screen, zbuffer, view, ambient, light, areflect, dreflect, sreflect)
+                draw_polygons(tmp, screen, zbuffer, view, ambient, lights, symbols[command['constants']][1])
                 tmp = []
             elif c == 'line':
                 if isinstance(args[0], str):
@@ -195,27 +201,26 @@ def run(filename):
                 matrix_mult( stack[-1], tmp )
                 draw_lines(tmp, screen, zbuffer, color)
                 tmp = []
+            elif c == 'mesh':
+                add_mesh(tmp, args[0])
+                matrix_mult( stack[-1], tmp )
+                draw_polygons(tmp, screen, zbuffer, view, ambient, lights, symbols[command['constants']][1])
+                tmp = []
             elif c == 'move':
-                k = 1
-                if command['knob']:
-                    k = symbols[command['knob']][1]
-                tmp = make_translate(args[0] * k, args[1] * k, args[2] * k)
+                knob_value = symbols[command["knob"]][1] if command["knob"] else 1
+                tmp = make_translate(args[0] * knob_value, args[1] * knob_value, args[2] * knob_value)
                 matrix_mult(stack[-1], tmp)
                 stack[-1] = [x[:] for x in tmp]
                 tmp = []
             elif c == 'scale':
-                k = 1
-                if command['knob']:
-                    k = symbols[command['knob']][1]
-                tmp = make_scale(args[0] * k, args[1] * k, args[2] * k)
+                knob_value = symbols[command["knob"]][1] if command["knob"] else 1
+                tmp = make_scale(args[0] * knob_value, args[1] * knob_value, args[2] * knob_value)
                 matrix_mult(stack[-1], tmp)
                 stack[-1] = [x[:] for x in tmp]
                 tmp = []
             elif c == 'rotate':
-                k = 1
-                if command['knob']:
-                    k = symbols[command['knob']][1]
-                theta = args[1] * (math.pi/180) * k
+                knob_value = symbols[command["knob"]][1] if command["knob"] else 1
+                theta = args[1] * (math.pi/180) * knob_value
                 if args[0] == 'x':
                     tmp = make_rotX(theta)
                 elif args[0] == 'y':
@@ -234,19 +239,11 @@ def run(filename):
             elif c == 'save':
                 save_extension(screen, args[0])
 
-        print num_frames
+        # print num_frames
         if num_frames > 1:
             print("saving file: " + filename)
             filename = "./anim/" + basename + ( "%03d.png" % int(frame) )
             save_extension( screen, filename)
-
-        tmp = new_matrix()
-        ident( tmp )
-        stack = [ [x[:] for x in tmp] ]
-        screen = new_screen()
-        zbuffer = new_zbuffer()
-        tmp = []
-        step_3d = 20
-
+            
     if num_frames > 1:
-        make_animation( basename )
+        make_animation(basename)

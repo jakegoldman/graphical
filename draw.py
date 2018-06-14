@@ -13,11 +13,6 @@ def scanline_convert(polygons, i, screen, zbuffer, color ):
                (polygons[i+1][0], polygons[i+1][1], polygons[i+1][2]),
                (polygons[i+2][0], polygons[i+2][1], polygons[i+2][2]) ]
 
-    # color = [0,0,0]
-    # color[RED] = (23*(i/3)) %256
-    # color[GREEN] = (109*(i/3)) %256
-    # color[BLUE] = (227*(i/3)) %256
-
     points.sort(key = lambda x: x[1])
     x0 = points[BOT][0]
     z0 = points[BOT][2]
@@ -56,43 +51,50 @@ def add_polygon( polygons, x0, y0, z0, x1, y1, z1, x2, y2, z2 ):
     add_point(polygons, x1, y1, z1);
     add_point(polygons, x2, y2, z2);
 
-def draw_polygons( matrix, screen, zbuffer, view, ambient, light, areflect, dreflect, sreflect):
-    if len(matrix) < 2:
+def draw_polygons( matrix, screen, zbuffer, view, ambient, lights, constants):
+    if len(matrix) < 3:
         print 'Need at least 3 points to draw'
         return
 
     point = 0
     while point < len(matrix) - 2:
-
         normal = calculate_normal(matrix, point)[:]
         if dot_product(normal, view) > 0:
-
-            color = get_lighting(normal, view, ambient, light, areflect, dreflect, sreflect )
+            color = get_lighting(normal, view, ambient, lights, constants )
             scanline_convert(matrix, point, screen, zbuffer, color)
-
-            # draw_line( int(matrix[point][0]),
-            #            int(matrix[point][1]),
-            #            matrix[point][2],
-            #            int(matrix[point+1][0]),
-            #            int(matrix[point+1][1]),
-            #            matrix[point+1][2],
-            #            screen, zbuffer, color)
-            # draw_line( int(matrix[point+2][0]),
-            #            int(matrix[point+2][1]),
-            #            matrix[point+2][2],
-            #            int(matrix[point+1][0]),
-            #            int(matrix[point+1][1]),
-            #            matrix[point+1][2],
-            #            screen, zbuffer, color)
-            # draw_line( int(matrix[point][0]),
-            #            int(matrix[point][1]),
-            #            matrix[point][2],
-            #            int(matrix[point+2][0]),
-            #            int(matrix[point+2][1]),
-            #            matrix[point+2][2],
-            #            screen, zbuffer, color)
         point+= 3
 
+def add_mesh( polygons, filename ):
+    with open( filename ) as f:
+
+        lines = f.read().split("\n")
+
+        vertices = [ [0,0,0] ]
+        faces = []
+
+        for line in lines:
+            line = line.split()
+
+            if line:
+                if line[0] == 'v':
+                    coors = []
+                    for coor in line[1:]:
+                        coors.append( float(coor) )
+                    vertices.append(coors)
+
+                elif line[0] == 'f':
+                    face = []
+                    for index in line[1:]:
+                        face.append( int(index) )
+                    faces.append(face)
+
+        for face in faces:
+            p0 = vertices[face[0]]
+            p1 = vertices[face[1]]
+            p2 = vertices[face[2]]
+            add_polygon( polygons, p0[0], p0[1], p0[2],
+                                   p1[0], p1[1], p1[2],
+                                   p2[0], p2[1], p2[2])
 
 def add_box( polygons, x, y, z, width, height, depth ):
     x1 = x + width
